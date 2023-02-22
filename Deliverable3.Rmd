@@ -1,0 +1,274 @@
+PUBPOL 543
+
+Deliverable 3
+
+This assignment will consist of generating two plots: 
+
+A. Text Data Plot: "Fake News Vocabulary" 
+
+B. Spatial Data Plot: "World Effective Governance Indicators" 
+
+Part 1: Text Data Plot
+
+1. Reading-in the dataset with news articles labeled as "fake" or "real", containing 3164 observations of 4 variables, including articles' title, text and label. 
+
+```{r}
+#Starting with cleaning the memory: 
+rm(list = ls()) 
+
+#Providing the link to the dataset:
+link="https://github.com/elenapopic543/Deliverable-3/raw/main/fake_or_real_news.csv"
+
+#Reading-in the dataset:
+allNews=read.csv(link, stringsAsFactors = F)
+
+#Checking the column names:
+names(allNews)
+```
+
+```{r}
+#Checking the information in the column encompassing the text of the news:
+#head(allNews$text,1)
+```
+
+2. Subsetting the data: I will concentrate my analysis on news that are labeled as "Fake":
+
+```{r}
+#Creating a subset with news that are fake:
+fakeNews=allNews[allNews$label=="FAKE",] 
+#Checking the first three rows:
+#head(fakeNews,3)
+```
+
+In the next lines of code, I will perform some preparatory steps such as tokenization and vocabulary pruning before using the data to create word plots. 
+
+3. Text tokenization: The unit of observation in the dataset is one news article. All the words in the news’ text are perceived as one single variable. I start by transforming the string of text data into individual words as analyzable elements (tokens). 
+
+```{r}
+#Transforming the string of text data into individual words as analyzable elements (tokens):
+library(tidytext) 
+library(magrittr) 
+fakeNews_Words = fakeNews %>%
+                 unnest_tokens(output=EachWord, 
+                               input=text,
+                               token="words") 
+#Checking the first ten rows:
+head(fakeNews_Words,10) 
+```
+
+```{r}
+#Checking the total amount of words in my dataframe:
+nrow(fakeNews_Words) 
+```
+
+4. Vocabulary pruning: Filtering the words in the dataset to remove stop words and irrelevant words to facilitate meaningful analysis.  
+
+```{r}
+library(dplyr)
+
+#Removing stop words:
+fakeNews_Words = fakeNews_Words %>%anti_join(stop_words,
+                                             by = c("EachWord" = "word"))
+#Checking the results:
+nrow(fakeNews_Words) 
+```
+
+By removing the stop words, I have reduced the total number of words by more than half from over 2 million to under 1 million words in my dataset. In the following, I will apply additional vocabulary pruning steps. 
+
+```{r}
+#Identifying the frequency of each word:
+plotdata=as.data.frame(table(fakeNews_Words$EachWord))
+names(plotdata)=c('EachWord','Counts')
+#Sorting the words by their frequency of usage in ascending order:
+plotdata_ascending=plotdata[order(plotdata$Counts),]
+```
+
+```{r}
+#Checking the 10 least used words:
+#head(plotdata_ascending,10)
+```
+
+```{r}
+#Checking the 10 most used words:
+#tail(plotdata_ascending,10)
+```
+
+To ensure that the plotted words are representative for fake news articles, I will further prune the vocabulary by keeping the words with a minimum occurrence of 700 times:
+
+```{r}
+#Vocabulary pruning - keeping only the words with 700 unique occurrences: 
+plotdata_ascending=plotdata_ascending[plotdata_ascending$Counts>700,]
+```
+
+Pruning the vocabulary by removing numbers, manually specified words, trailing "s" characters and empty values:
+
+```{r}
+#Defining a function to remove numbers from text:
+remove_numbers = function(text) {gsub("\\d+", "", text)}
+
+#Applying the above function to the "EachWord" column of the dataframe:
+plotdata_ascending$EachWord <- sapply(plotdata_ascending$EachWord, remove_numbers)
+
+#Removing manually identified words:
+badWords=c("it\u2019s", "don\u2019t", "that\u2019s", "\u2019s", "u.s", "trump\u2019s", "clinton\u2019s", "hillary\u2019s") #using the Unicode value for the dash 
+plotdata_ascending=plotdata_ascending[!plotdata_ascending$EachWord%in%badWords,]
+
+#Removing words that end with "s" and are preceded or followed by a non-word character (symbols, punctuation marks, etc):
+plotdata_ascending$EachWord <- gsub("\\b\\w+s\\b", "", plotdata_ascending$EachWord)
+
+# Removing rows with empty values in the "EachWord" column:
+plotdata_ascending = subset(plotdata_ascending, EachWord != "")
+```
+
+```{r}
+# Loading packages:
+library(ggplot2)
+library(RColorBrewer)
+library(ggwordcloud)
+```
+
+```{r}
+#Creating the dataset with each word in descending order of its frequency:
+plotdata_descending=plotdata_ascending[order(-plotdata_ascending$Counts),]
+```
+
+```{r}
+#Creating the plot: 
+ggplot(plotdata_descending, aes(label = EachWord, size = Counts, color = Counts)) +
+  geom_text_wordcloud_area(eccentricity = 0.65) +
+  theme_minimal() +
+  scale_size_area(max_size = 10) +
+  scale_color_gradient(low = "blue", high = "darkblue")
+```
+
+Part 2: Spatial Data Plot: "World Effective Governance Indicators" 
+
+The following exercise is based on data sourced from the World Bank Open Data on Effective Governance Indicators, including such variables as the Corruption Control Estimate, Government Effectiveness Estimate, and Rule of Law Estimate. 
+
+Source: https://databank.worldbank.org/source/worldwide-governance-indicators) last accessed February 20, 2023  
+
+```{r}
+#Starting with cleaning the memory: 
+rm(list = ls()) 
+
+#Providing the link to the dataset:
+link="https://github.com/elenapopic543/Deliverable-3/raw/main/GovEffectivenessData.csv"
+
+#Reading-in the dataset:
+df=read.csv(link, stringsAsFactors = F)
+
+#Checking the column names:
+names(df)
+```
+
+```{r}
+#Formatting numeric data;
+df$CC.EST <- as.numeric(df$CC.EST)
+df$GE.EST <- as.numeric(df$GE.EST)
+df$RL.EST <- as.numeric(df$RL.EST)
+
+#Dropping missing data:
+df = na.omit(df)
+
+#Exploring the range of data:
+#boxplot(df[,c('CC.EST','GE.EST','RL.EST')])
+```
+
+```{r}
+#Clustering countries based on their Corruption Control Estimate, Government Effectiveness Estimate, and Rule of Law Estimate:
+set.seed(123) 
+
+#Computing the distance matrix"
+cols = c("CC.EST", "GE.EST", "RL.EST")
+data = df[, cols]
+distMatrix <- cluster::daisy(data)
+
+#Based on the calculated distances, determining the clusters:   
+res.pam=cluster::pam(x=distMatrix,
+                     k = 3,
+                     cluster.only = F)
+
+#Saving the information on clusters as a factor/categorical variable to the original dataframe:
+df$cluster=as.factor(res.pam$clustering)
+```
+
+```{r}
+#Exploring ordering patterns:
+theVars = c("CC.EST", "GE.EST", "RL.EST", "cluster")
+aggregate(.~cluster,
+          data=df[,theVars],
+          FUN=median)
+```
+
+Based on this output, countries are grouped in clusters in ascending order of their values on Corruption Control Estimate, Government Effectiveness Estimate, and Rule of Law Estimate, from low to high.
+
+```{r}
+#Generating labels based on the detected ordering pattern:
+df$cluster=factor(df$cluster,
+                           labels=c("Low","Mid","High"), 
+                           ordered=T)
+```
+
+```{r}
+#Providing the link to the geo.json map:
+linkMap="https://github.com/elenapopic543/Deliverable-3/raw/main/custom.geo.json" 
+
+#Loading the required package to work with the geo.json objects:
+library(sf)
+
+#Reading-in the geojson map:
+map = read_sf(linkMap)
+head(map)
+```
+
+```{r}
+library(dplyr)
+#Renaming the sov_a3 column to facilitate the merging:
+names(map)[5] <- "ISO3"
+```
+
+```{r}
+#Merging the map with the data in the original country-level dataset:
+mapWorld=merge(map, 
+               df, 
+               by='ISO3') 
+```
+
+```{r}
+#Creating the base map:
+library(ggplot2)
+baseMap= ggplot(data=map) + theme_classic() + 
+         geom_sf(fill='grey', 
+                 color=NA) 
+#baseMap 
+```
+
+```{r}
+#Adding the data-layer from the merged dataset:
+numericMap = baseMap + geom_sf(data=mapWorld,
+                       aes(fill=CC.EST),
+                       color=NA)
+#numericMap
+```
+
+```{r}
+#Adding the clustering information to the map:
+categoricalMap= baseMap + geom_sf(data=mapWorld,
+                           aes(fill=cluster), 
+                           color=NA) 
+#categoricalMap 
+```
+
+```{r}
+library(RColorBrewer)
+#Customizing the map:
+Legend_labels=c('1_low','2_mid','3_high')
+Legend_title="World Effective Governance Indicators\n(grey is missing)" 
+
+categoricalMap + scale_fill_brewer(palette ='Oranges', #using a sequential palette
+                                   direction = -1,
+                                   labels=Legend_labels,
+                                   name=Legend_title) + 
+                                   theme(legend.title = element_text(size = 8))
+```
+
