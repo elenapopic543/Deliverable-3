@@ -10,6 +10,11 @@ B. Spatial Data Plot: "World Effective Governance Indicators"
 
 Part 1: Text Data Plot
 
+```{r}
+#Suppressing warning messages in knitted html file:
+knitr::opts_chunk$set(warning=FALSE)
+```
+
 1. Reading-in the dataset with news articles labeled as "fake" or "real", containing 3164 observations of 4 variables, including articles' title, text and label. 
 
 ```{r}
@@ -61,7 +66,7 @@ head(fakeNews_Words,10)
 nrow(fakeNews_Words) 
 ```
 
-4. Vocabulary pruning: Filtering the words in the dataset to remove stop words and irrelevant words to facilitate meaningful analysis.  
+4. "Vocabulary pruning" - filtering the words in the dataset to remove stop words and irrelevant words to facilitate meaningful analysis of my text data.  
 
 ```{r}
 library(dplyr)
@@ -100,7 +105,7 @@ To ensure that the plotted words are representative for fake news articles, I wi
 plotdata_ascending=plotdata_ascending[plotdata_ascending$Counts>700,]
 ```
 
-Pruning the vocabulary by removing numbers, manually specified words, trailing "s" characters and empty values:
+Pruning the vocabulary by removing numbers, manually specified words, and trailing "s" characters:
 
 ```{r}
 #Defining a function to remove numbers from text:
@@ -115,10 +120,37 @@ plotdata_ascending=plotdata_ascending[!plotdata_ascending$EachWord%in%badWords,]
 
 #Removing words that end with "s" and are preceded or followed by a non-word character (symbols, punctuation marks, etc):
 plotdata_ascending$EachWord <- gsub("\\b\\w+s\\b", "", plotdata_ascending$EachWord)
-
-# Removing rows with empty values in the "EachWord" column:
-plotdata_ascending = subset(plotdata_ascending, EachWord != "")
 ```
+
+To avoid repetitions of words with the same root, and use only their base dictionary form, I will apply the text lemmatization process in the following lines of code:
+
+```{r}
+#Installing and loading the required package:
+library(udpipe)
+
+#Downloading and loading the English language udpipe model:
+ud_model = udpipe_download_model(language = "english")
+ud_model = udpipe_load_model(ud_model$file_model)
+
+# Defining a lemmatization function:
+lemmatize_text <- function(text) {
+  x <- udpipe_annotate(ud_model, text)
+  x <- as.data.frame(x)
+  x <- subset(x, upos %in% c("NOUN", "VERB", "ADJ", "ADV"))
+  x <- unique(x[, c("doc_id", "paragraph_id", "sentence_id", "token_id", "lemma")])
+  paste(x$lemma, collapse = " ")
+}
+
+# Applying the lemmatization function to my dataset: 
+plotdata_ascending$EachWord <- sapply(plotdata_ascending$EachWord, lemmatize_text)
+```
+
+```{r}
+# Additionally, removing rows with empty values in the "EachWord" column:
+plotdata_ascending = plotdata_ascending[!is.na(plotdata_ascending$EachWord) & plotdata_ascending$EachWord != "",]
+```
+
+After having performed vocabulary pruning and text lemmatization, I proceed to creating the plot.
 
 ```{r}
 # Loading packages:
@@ -172,9 +204,6 @@ names(df)
 df$CC.EST <- as.numeric(df$CC.EST)
 df$GE.EST <- as.numeric(df$GE.EST)
 df$RL.EST <- as.numeric(df$RL.EST)
-
-#Exploring the range of data:
-#boxplot(df[,c('CC.EST','GE.EST','RL.EST')])
 ```
 
 ```{r}
@@ -183,7 +212,15 @@ df = na.omit(df)
 ```
 
 ```{r}
-#Clustering countries based on their Corruption Control Estimate, Government Effectiveness Estimate, and Rule of Law Estimate:
+#Exploring the range of data:
+#boxplot(df[,c('CC.EST','GE.EST','RL.EST')])
+
+#Note: The values of all three variables are in the same range. 
+```
+
+Clustering countries based on their Corruption Control Estimate, Government Effectiveness Estimate, and Rule of Law Estimate:
+
+```{r}
 set.seed(123) 
 
 #Computing the distance matrix"
@@ -226,7 +263,7 @@ library(sf)
 
 #Reading-in the geojson map:
 map = read_sf(linkMap)
-head(map)
+#head(map)
 ```
 
 ```{r}
@@ -271,7 +308,7 @@ categoricalMap= baseMap + geom_sf(data=mapWorld,
 library(RColorBrewer)
 #Customizing the map:
 Legend_labels=c('1_low','2_mid','3_high')
-Legend_title="World Effective Governance Indicators\n(grey is missing)" 
+Legend_title="Country Effective Governance Indicators\n(grey is missing)" 
 
 categoricalMap + scale_fill_brewer(palette ='Oranges', #using a sequential palette
                                    direction = -1,
@@ -279,7 +316,7 @@ categoricalMap + scale_fill_brewer(palette ='Oranges', #using a sequential palet
                                    name=Legend_title) + 
                                    theme(legend.title = element_text(size = 8)) + 
                                   labs(title = "Comparative View on Government Effectiveness", 
-                                  title.size = 12,
+                                  title.size = 11,
                                   title.position = "plot",
                                   caption = "Source: World Bank Open Data") +
                                   theme(plot.title = element_text(margin = margin(b = 20))) +
