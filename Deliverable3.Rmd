@@ -138,14 +138,20 @@ ggplot(plotdata_descending, aes(label = EachWord, size = Counts, color = Counts)
   geom_text_wordcloud_area(eccentricity = 0.65) +
   theme_minimal() +
   scale_size_area(max_size = 10) +
-  scale_color_gradient(low = "blue", high = "darkblue")
+  scale_color_gradient(low = "blue", high = "darkblue") +
+  labs(title = "Word-cloud: Fake News Vocabulary", 
+       title.size = 12, 
+       title.position = "plot",
+       caption = "Source: Fake News Dataset (2016), kaggle.com") +
+       theme(plot.title = element_text(margin = margin(b = 20))) +
+       theme(plot.caption = element_text(hjust = 0)) 
 ```
 
 Part 2: Spatial Data Plot: "World Effective Governance Indicators" 
 
 The following exercise is based on data sourced from the World Bank Open Data on Effective Governance Indicators, including such variables as the Corruption Control Estimate, Government Effectiveness Estimate, and Rule of Law Estimate. 
 
-Source: https://databank.worldbank.org/source/worldwide-governance-indicators) last accessed February 20, 2023  
+Source: https://databank.worldbank.org/source/worldwide-governance-indicators (last accessed February 20, 2023)  
 
 ```{r}
 #Starting with cleaning the memory: 
@@ -167,11 +173,13 @@ df$CC.EST <- as.numeric(df$CC.EST)
 df$GE.EST <- as.numeric(df$GE.EST)
 df$RL.EST <- as.numeric(df$RL.EST)
 
-#Dropping missing data:
-df = na.omit(df)
-
 #Exploring the range of data:
 #boxplot(df[,c('CC.EST','GE.EST','RL.EST')])
+```
+
+```{r}
+#Dropping missing data:
+df = na.omit(df)
 ```
 
 ```{r}
@@ -269,6 +277,13 @@ categoricalMap + scale_fill_brewer(palette ='Oranges', #using a sequential palet
                                    direction = -1,
                                    labels=Legend_labels,
                                    name=Legend_title) + 
-                                   theme(legend.title = element_text(size = 8))
+                                   theme(legend.title = element_text(size = 8)) + 
+                                  labs(title = "Comparative View on Government Effectiveness", 
+                                  title.size = 12,
+                                  title.position = "plot",
+                                  caption = "Source: World Bank Open Data") +
+                                  theme(plot.title = element_text(margin = margin(b = 20))) +
+                                  theme(plot.caption = element_text(hjust = 0)) 
+                                   
 ```
 
